@@ -10,9 +10,10 @@
 //! P1b (decision form): the gate reading is `true_block_reading` —
 //! the grasp is judged against competition inside its own block
 //! (stored fragment line range), never against the whole field.
-//! `native_qa` applies it to supersede global-margin abstains only;
-//! the recorded series remain the calibration vectors, and the
-//! threshold constant lives at the call site so it stays visible.
+//! `native_qa` applies it to supersede global-margin abstains only.
+//! The separation threshold is Fate's own: the session cluster
+//! equation's `bundle_fits` under its adapted threshold. No
+//! calibrated constant lives in this gate.
 
 use serde::{Deserialize, Serialize};
 
@@ -47,6 +48,29 @@ pub struct FateGrasp {
     /// How many series candidates fall inside the grasped block.
     #[serde(default)]
     pub block_candidate_count: usize,
+    /// Fate-state telemetry: the session snapshot's corpus-affinity
+    /// dispersion, from which the Fate algebra derives its scales.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alg_affinity_std: Option<f64>,
+    /// What the session's own Fate algebra would require as relative
+    /// margin here: delta_required(s_grasp) / s_grasp (default meta —
+    /// the strict bound; session pretrain/adapt only relaxes it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alg_delta_rel: Option<f64>,
+    /// The grasped block's own Fate equation threshold, frozen in its
+    /// triple_fate_slice when the block closed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_cluster_threshold: Option<f64>,
+    /// The session's LIVE global Fate equation at the gate point
+    /// (hub.triple_fate.cluster_equation): coefficients, its own
+    /// threshold, and how many times Fate has adapted it. This is
+    /// the quantity that should control the gate threshold.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eq_coefs: Option<[f64; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eq_threshold: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eq_adaptations: Option<u64>,
 }
 
 impl FateGrasp {
@@ -71,7 +95,32 @@ impl FateGrasp {
             grasp_block: None,
             fate_block_rel: None,
             block_candidate_count: 0,
+            alg_affinity_std: None,
+            alg_delta_rel: None,
+            block_cluster_threshold: None,
+            eq_coefs: None,
+            eq_threshold: None,
+            eq_adaptations: None,
         })
+    }
+
+    /// Attach the Fate-state scales recorded at the gate point.
+    pub fn set_fate_scales(
+        &mut self,
+        affinity_std: f64,
+        delta_rel: Option<f64>,
+        block_cluster_threshold: Option<f64>,
+    ) {
+        self.alg_affinity_std = Some(affinity_std);
+        self.alg_delta_rel = delta_rel;
+        self.block_cluster_threshold = block_cluster_threshold;
+    }
+
+    /// Attach the session's live Fate equation state.
+    pub fn set_live_equation(&mut self, coefs: [f64; 3], threshold: f64, adaptations: u64) {
+        self.eq_coefs = Some(coefs);
+        self.eq_threshold = Some(threshold);
+        self.eq_adaptations = Some(adaptations);
     }
 
     /// Attach the true block reading (see `true_block_reading`).
@@ -158,6 +207,10 @@ pub struct BlockReading {
     pub rel_margin: f64,
     /// Series candidates (incl. the grasp) inside the block.
     pub n_candidates: usize,
+    /// Score of the grasped line itself.
+    pub s_grasp: f64,
+    /// Best competing score inside the block, if any.
+    pub s_other: Option<f64>,
 }
 
 /// Compute the block reading. None when the grasped line belongs to
@@ -202,6 +255,8 @@ pub fn true_block_reading(
         line_end: le,
         rel_margin,
         n_candidates: n,
+        s_grasp,
+        s_other: if s_other.is_finite() { Some(s_other) } else { None },
     })
 }
 
@@ -263,7 +318,12 @@ mod tests {
         let ranges = vec![(0, 1), (2, 4), (5, 7)];
         let r = true_block_reading(&idx, &scores, 1, &ranges).unwrap();
         assert!((r.rel_margin - (1.5283 - 1.5107) / 1.5283).abs() < 1e-9);
-        assert!(r.rel_margin < 0.15);
+        assert_eq!(r.s_grasp, 1.5283);
+        assert_eq!(r.s_other, Some(1.5107));
+        // Under the birth equation (thr 0.01) the pair still fits one
+        // bundle: (s1/s2 - 1)^2 ~= 0.00013 < 0.01.
+        let x = r.s_grasp / r.s_other.unwrap();
+        assert!((x - 1.0).powi(2) < 0.01);
     }
 
     #[test]

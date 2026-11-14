@@ -2819,11 +2819,13 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
         // different blocks scoring alike) stop vetoing a grasp that
         // stands clear on its own substrate. Absolute-weakness (tau),
         // native-reject and defer abstains are untouched.
-        // Threshold calibrated on recorded true-block readings
-        // (valhalla-server fate_series_block.json, 12-deep series):
-        // gate-flipped correct needles rel >= 0.232, wrong grasps that
-        // must stay silent rel <= 0.110 — 0.15 sits inside the gap,
-        // the same role the ratio constant plays in bundle_fits.
+        // The separation threshold is NOT a constant here: it is the
+        // session Fate equation's own threshold, applied through
+        // bundle_fits (see gate below). Measured caveat (2026-11-14):
+        // QA-path sessions receive almost no adapt feeds, so the
+        // equation sits near its birth state (coefs 1,-2,1, thr 0.01,
+        // adaptations 0-3); the gate inherits whatever Fate has
+        // actually learned, no more.
         let cand_idx: Vec<Option<usize>> = top
             .iter()
             .map(|m| crate::fate_qa::parse_corpus_idx(&m.text))
@@ -2838,16 +2840,66 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
         let block_reading = grasped_line.and_then(|g| {
             crate::fate_qa::true_block_reading(&cand_idx, &cand_scores, g, &block_ranges)
         });
+
+        // Fate-state telemetry (no behaviour change): what the
+        // session's own Fate algebra and the grasped block's own Fate
+        // equation would require at this grasp — recorded so the
+        // calibrated gate constant can be replaced by a
+        // Fate-controlled quantity once measured. The algebra is fed
+        // the LIVE post-adapt affinity (`line_aff_slice`): the fork
+        // snapshot carries no corpus affinity and would silently
+        // degrade to ambient defaults.
+        let algebra_state = crate::fate_adaptive_algebra::FateAlgebraState::from_live_affinity(
+            line_aff_slice,
+            &snap.hub_prefs,
+            &crate::fate_adaptive_algebra::FateAlgebraMeta::default(),
+        );
+        let s_grasp = grasped_line
+            .and_then(|g| {
+                cand_idx
+                    .iter()
+                    .zip(cand_scores.iter())
+                    .find(|(i, _)| **i == Some(g))
+                    .map(|(_, s)| *s)
+            })
+            .or_else(|| cand_scores.first().copied())
+            .unwrap_or(0.0);
+        let alg_delta_rel = if s_grasp > 0.0 {
+            Some(algebra_state.delta_required(s_grasp) / s_grasp)
+        } else {
+            None
+        };
+        let block_cluster_threshold = grasped_line.and_then(|g| {
+            fragment_source
+                .iter()
+                .find(|f| g >= f.line_start && g <= f.line_end)
+                .map(|f| f.triple_fate_slice.cluster_threshold)
+        });
+        // The session's live global Fate equation (the judge Fate
+        // itself would use), read at the gate point.
+        let live_eq = &qa_session.hub.triple_fate.cluster_equation;
+        let live_eq_state = (
+            [live_eq.coef_a, live_eq.coef_b, live_eq.coef_c],
+            live_eq.threshold,
+            live_eq.adaptation_count,
+        );
         if q.score_type == "open"
             && fog_decision.decision == "abstain"
             && fog_decision.reason.starts_with("margin=")
         {
-            let rel_min = std::env::var("VALHALLA_FATE_BLOCK_REL_MIN")
-                .ok()
-                .and_then(|v| v.parse::<f64>().ok())
-                .unwrap_or(0.15);
             if let Some(reading) = block_reading {
-                if reading.rel_margin >= rel_min {
+                // Fate controls the threshold: the grasp and its
+                // best in-block competitor are judged by the session's
+                // own cluster equation — if the two still fit one
+                // bundle (bundle_fits, original (x-1)^2 semantics
+                // under the equation's own adapted threshold), the
+                // grasp is not separated and silence stands. No
+                // calibrated constant anywhere in this gate.
+                let separated = match reading.s_other {
+                    Some(s_other) => !live_eq.bundle_fits(reading.s_grasp, s_other),
+                    None => true,
+                };
+                if separated {
                     fog_decision = FogDecision {
                         decision: "emit".into(),
                         structure_ready: true,
@@ -2855,11 +2907,13 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
                         tau: fog_decision.tau,
                         delta_required: fog_decision.delta_required,
                         reason: format!(
-                            "fate_block_ready block=[{},{}] rel={:.4}>={:.3} n_block={} (global-margin abstain superseded)",
+                            "fate_block_ready block=[{},{}] bundle_fits=false s1={:.4} s2={:.4} eq_thr={:.4} eq_adapt={} n_block={} (global-margin abstain superseded)",
                             reading.line_start,
                             reading.line_end,
-                            reading.rel_margin,
-                            rel_min,
+                            reading.s_grasp,
+                            reading.s_other.unwrap_or(0.0),
+                            live_eq.threshold,
+                            live_eq.adaptation_count,
                             reading.n_candidates
                         ),
                     };
@@ -2973,6 +3027,14 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
         );
         if let (Some(grasp), Some(reading)) = (fate_grasp.as_mut(), block_reading) {
             grasp.set_block_reading(&reading);
+        }
+        if let Some(grasp) = fate_grasp.as_mut() {
+            grasp.set_fate_scales(
+                algebra_state.affinity_std,
+                alg_delta_rel,
+                block_cluster_threshold,
+            );
+            grasp.set_live_equation(live_eq_state.0, live_eq_state.1, live_eq_state.2);
         }
 
         results.push(NativeQaBatchItem {
