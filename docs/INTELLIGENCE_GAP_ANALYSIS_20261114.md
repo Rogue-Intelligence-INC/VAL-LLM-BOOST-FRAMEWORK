@@ -198,6 +198,15 @@ top-1 的同一套结构分给出 top-k (idx, score)，hybrid 证据改按
 验收：极端三档 ≥12/12、多模 ≥9/9、增强 ≥17/21 且证据来源
 100% 为 fate_grasp 行（可审计）。
 
+**进展（2026-11-14 晚）**：`fate_grasp` 出口已落地并部署
+（`rust/fate_qa.rs`、candidate 序列+激活区块+抓取行），只暴露
+读数、行为零变化；seg 编号连续与 fragment 窗口卸载一并完成
+（会话线 46MB→1.49MB）。离线校准结论：相对 margin 在极端集
+可分、affinity 是反馈记忆不可当门、多模 q1 与 premise/swap
+序列判不了——详见 `docs/FATE_SILENCE_AND_UNLOAD_ANALYSIS_20261114.md`，
+原版设计规范见 `docs/ORIGINAL_FATE_DESIGN.md`。待续：
+candidate_indices、首段收口、区块内序列复验后才换门。
+
 ---
 
 硬约束（不可回归项）：极端三档 12/12、编造恒 0、多模特征抓取 9/9、
