@@ -183,6 +183,21 @@ Hebbian 边权（仓内现成），不必先建外部 KG；但须先解决活网
 数据：`valhalla-server/tests/results_extreme/boost_adapt_lines100006.json`，
 日志 `tests/boost_adapt{,2,3,4}.log`。本仓仍未推送。
 
+## 8. 待办（2026-11-14 定版）：引擎 fate_grasp 场序出口
+
+审计确认：抓取的忠实实现不在 Python 层。引擎的场是信号空间的
+（亲和×信号余弦、场强=能量·√复杂度、margin=信噪判据），HTTP
+只给 top-1 行号，逐行场值没有出口，网关只能在文本空间猜场。
+当日实验：Python 层 Fate-only 三版把基线从 12/12 弄到 8–10/12，
+已回滚多轨基线（valhalla-server ebe8c36），复现 OVERALL PASS。
+
+正解（排期单独做）：Rust row 增加 `fate_grasp` 出口——按引擎挑
+top-1 的同一套结构分给出 top-k (idx, score)，hybrid 证据改按
+场序取行、transformer 只口头化；弱放行门保留物理 margin；
+"重抓"改为信号再脉冲（多周期/反馈调亲和），不再用文本改述。
+验收：极端三档 ≥12/12、多模 ≥9/9、增强 ≥17/21 且证据来源
+100% 为 fate_grasp 行（可审计）。
+
 ---
 
 硬约束（不可回归项）：极端三档 12/12、编造恒 0、多模特征抓取 9/9、
