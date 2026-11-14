@@ -1,0 +1,82 @@
+[
+  {
+    "turn": 0,
+    "fog": "emit",
+    "margin": 0.244449336620562,
+    "top": 1.4806925562603925,
+    "rel": 0.19703656736954364,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 1,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 2,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 3,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 4,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 5,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 6,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 7,
+    "fog": "emit",
+    "margin": 0.6014493366205618,
+    "top": 2.0206925562603923,
+    "rel": 0.32204333934871227,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 8,
+    "fog": "emit",
+    "margin": 0.6507505786151826,
+    "top": 2.1606925562603925,
+    "rel": 0.3011768503250022,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 9,
+    "fog": "emit",
+    "margin": 0.6507505786151826,
+    "top": 2.1606925562603925,
+    "rel": 0.3011768503250022,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  }
+]

@@ -642,12 +642,25 @@ fn follow_up_retrieval_boost(
     if prior_questions.is_empty() {
         return 0.0;
     }
+    // A repeated question is not a follow-up: it brings no new
+    // context, so continuity boosts must not pay out for it (they
+    // manufactured +0.18*overlap of margin per repetition, measured
+    // 0.245 -> 0.651 over 10 identical asks). Only priors that
+    // differ from the current question count as thread context.
+    let q_norm = question.trim().to_lowercase();
+    let priors: Vec<&String> = prior_questions
+        .iter()
+        .filter(|pq| pq.trim().to_lowercase() != q_norm)
+        .collect();
+    if priors.is_empty() {
+        return 0.0;
+    }
     let cur_overlap = keyword_overlap_count(question, memory_text) as f64;
-    let prior_overlap = prior_questions
+    let prior_overlap = priors
         .iter()
         .map(|pq| keyword_overlap_count(pq, memory_text) as f64)
         .sum::<f64>()
-        / prior_questions.len().max(1) as f64;
+        / priors.len().max(1) as f64;
 
     let mut boost = cur_overlap * 0.18;
     if prior_overlap > cur_overlap + 0.5 {
@@ -655,12 +668,12 @@ fn follow_up_retrieval_boost(
     }
     // Prefer seed / early anchor lines on topic drift in long threads (cycle 2+).
     if let Some(idx) = corpus_idx {
-        if idx <= 1 && cur_overlap >= 1.0 && prior_questions.len() >= 8 {
+        if idx <= 1 && cur_overlap >= 1.0 && priors.len() >= 8 {
             boost += 0.14;
         }
     }
 
-    let prior_kw: Vec<String> = prior_questions
+    let prior_kw: Vec<String> = priors
         .iter()
         .flat_map(|pq| question_keywords(pq))
         .collect();
@@ -1552,17 +1565,12 @@ fn decode_open(
             baseline_tick,
             aff,
         );
-        if let Some(cidx) = m.corpus_idx {
-            if cidx <= 1 {
-                let better_newer = memories.iter().any(|other| {
-                    other.corpus_idx.is_some_and(|j| j > cidx)
-                        && keyword_overlap_count(question, &other.text) > kw
-                });
-                if better_newer {
-                    score -= 0.18;
-                }
-            }
-        }
+        // Removed (2026-11-14, negative-optimization audit): a flat
+        // -0.18 penalty on corpus lines 0-1 whenever any newer line
+        // had more keyword overlap. Corpus position carries no
+        // authority in the field; the penalty was a stale-head
+        // symptom patch and directly fought the prelearn-head block
+        // closure (head lines are blocks like any other now).
         candidates.push((*i, score, kw));
     }
 

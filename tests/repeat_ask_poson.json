@@ -1,0 +1,82 @@
+[
+  {
+    "turn": 0,
+    "fog": "emit",
+    "margin": 0.2454432369352384,
+    "top": 1.4832505360683823,
+    "rel": 0.19704488391676636,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 1,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 2,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 3,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 4,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 5,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 6,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 7,
+    "fog": "emit",
+    "margin": 0.6024432369352386,
+    "top": 2.0232505360683826,
+    "rel": 0.3218913911495261,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 8,
+    "fog": "emit",
+    "margin": 0.6512669296990758,
+    "top": 2.1632505360683822,
+    "rel": 0.3010594098281036,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  },
+  {
+    "turn": 9,
+    "fog": "emit",
+    "margin": 0.6512669296990758,
+    "top": 2.1632505360683822,
+    "rel": 0.3010594098281036,
+    "answer": "[corpus:0] [fate:10@0] Project Borealiss"
+  }
+]
