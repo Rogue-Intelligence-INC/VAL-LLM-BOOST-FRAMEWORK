@@ -15,6 +15,8 @@ Rogue Intelligence INC · 2026-11-14 · 本地版（未入库）
 | Fate 裁决代数理由在线 | probe_fate_gateway.py 输出、fate_telemetry 字段 | valhalla_server/app.py |
 | 烘焙 Δw≈0.604、40 层、fate_converged | data/decode_heads.json（mistral24-auto-v1） | val-llm-fusion-framework/data |
 | multihop_fate/v2 切片 15/25（内部先例） | multihop_rag_hybrid_test.json | valhalla-unified-core/reports |
+| 倍率组：912× 窗口 / 331× 超死亡点 / ~83,000× 每题触达 / 17.5× 线缆 | 由 enhancement_ceiling_lines1000006.json 的 est_tokens=14,945,110、session_wire_mb=3.42、lines=1,000,026 与窗口 16,384 派生计算 | 同上 + 本表口径 |
+| 470× 连接压缩（孵化，含可达性代价披露） | 主项目孵化实测 19,858,861→42,199 | Valhalla-main 孵化实验 |
 
 复现环境：Windows 11、i9-14900KF、RTX 4090、Mistral-24B
 Q4_K_M（llama.cpp, 16K ctx）、valhalla_base v1.1.0。

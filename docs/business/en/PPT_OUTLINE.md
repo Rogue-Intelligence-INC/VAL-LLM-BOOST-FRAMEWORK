@@ -9,6 +9,7 @@ titles 28pt, body 14–16pt, ≤6 lines per slide, text left / visual right.
 | 2 | Three walls for enterprise LLMs | Window / Fabrication / Audit, one measured line each | Three red wall columns |
 | 3 | Solution: two structural layers | Fusion (body + head + bake) · BOOST (spread/aggregate/verify) | Flow: corpus → Fate gate → LLM |
 | 4 | Scale: flat to 14.95M tokens | Three tiers all 17/21, 0 fabricated, wire ~3.4MB | Flat VAL line vs window-death curve |
+| 4b | Multipliers: thousand-fold-class context | 912× window (measured) · 331× beyond death point · ~1/83,000 of corpus read per question · corpus ×1,240, session constant | Big-number layout: 912× / 331× / 83,000×, numerator÷denominator under each |
 | 5 | Discipline: zero fabrication, poison-proof | One line hijacks full-context; we are immune; auditable abstention | AUR-999 case card |
 | 6 | Trimodal single body + feature grasp | Co-ingestion 9/9; feature re-identification q6/q7 | Trimodal pulse diagram |
 | 7 | BOOST: from memory to reasoning | 17→20/21; multihop 0→1/2, aggregation 0→2/2; discipline first | v1 bare 13 vs v2 20 bars |

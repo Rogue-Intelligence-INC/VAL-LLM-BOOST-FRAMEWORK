@@ -10,7 +10,10 @@ and auditably abstinent (all measured). The BOOST layer adds reasoning
 operators — multihop, aggregation, verification (measured 17/21 → 20/21).
 We do not sell "a smarter model"; we sell a **trustworthy** one: it never
 answers recklessly, every answer can cite its evidence, and poisoning
-does not flip it.
+does not flip it. Multiplier framing: the measured working corpus is
+**912×** the decode head's native window (thousand-fold class), 331×
+beyond the full-context death point, and each question touches only
+~1/83,000 of the corpus (definitions and artifacts in DD.md).
 
 ## 2. Product
 - **VAL-LLM Fusion Framework** (public repo val-llm-fusion-framework):

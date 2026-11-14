@@ -36,6 +36,24 @@ Three walls for enterprise LLM deployment:
 | Trimodal (text/audio/image, one session) | 9/9 incl. feature grasp | Caption-RAG cannot accept features at all |
 | BOOST reasoning layer | 20/21 (multihop 0→1/2, aggregation 0→2/2) | Baseline 17/21 |
 
+## S4b The multiplier view (every ratio shows its numerator and denominator)
+
+| Ratio | Definition | Status |
+|---|---|---|
+| **912×** | Measured working corpus 14,945,110 tokens ÷ decode head's native 16,384-token window | Measured — thousand-fold-class context |
+| **331×** | Same ÷ the full-context arm's death point at 45,093 tokens (where it scored 0/13) | Measured — 331× beyond where the baseline flatlines |
+| **~83,000×** | Lines touched per question: 1,000,026-line corpus vs ≤12 evidence lines | Measured — each question reads ~1/100,000 of the corpus |
+| **1,240×** | Corpus growth 806 → 1,000,026 lines while session lines stay 27→28, wire 1.34→3.42MB | Measured — cost decoupled from corpus size |
+| **17.5×** | Session wire 3.42MB vs ~59.8MB raw corpus text | Measured — the on-wire form of memory |
+| **470×** | Incubation links 19,858,861 → 42,199 (main-project measurement; long-range reachability tradeoff disclosed) | Internal measurement — structural compression |
+| **8×** | fate_link group-8 fragments 40 → 5 | Measured (Report §11.9) |
+
+Potential (not measured, mechanism only): the protocol contains no
+corpus-size term — the next tier, 10M lines, is ~9,120× the window;
+the bottleneck is client-side selection indexing, not the engine.
+External wording may say "912× measured, thousand-fold class" —
+never present the potential tier as measured.
+
 ## S5 Why us (unique points ★)
 1. Trimodal co-ingestion under a single Fate verdict — competitors store
    captions, not adjudicated multimodal facts;

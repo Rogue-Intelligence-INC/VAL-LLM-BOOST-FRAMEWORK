@@ -15,6 +15,8 @@ Purpose: let investors / customers trace every claim to a reproducible artifact.
 | Fate verdicts with algebraic reasons, live | probe_fate_gateway.py output, fate_telemetry field | valhalla_server/app.py |
 | Bake Δw≈0.604, 40 layers, fate_converged | data/decode_heads.json (mistral24-auto-v1) | val-llm-fusion-framework/data |
 | multihop_fate/v2 slice 15/25 (internal precedent) | multihop_rag_hybrid_test.json | valhalla-unified-core/reports |
+| Multiplier set: 912× window / 331× beyond death point / ~83,000× per-question reach / 17.5× wire | Derived from enhancement_ceiling_lines1000006.json (est_tokens=14,945,110, session_wire_mb=3.42, lines=1,000,026) against the 16,384-token window | same + definitions in this table |
+| 470× link compression (incubation, reachability cost disclosed) | Main-project incubation measurement 19,858,861 → 42,199 | Valhalla-main incubation experiments |
 
 Reproduction environment: Windows 11, i9-14900KF, RTX 4090,
 Mistral-24B Q4_K_M (llama.cpp, 16K ctx), valhalla_base v1.1.0.
