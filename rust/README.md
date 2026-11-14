@@ -41,7 +41,11 @@ row 应带 `fate_grasp.candidate_scores`（5 元降序）。
 
 ## 待续（P1b 以后，顺序按实测发现定）
 
-1. `fate_grasp` 补 `candidate_indices`（候选分对应行号）；
-2. 首段收口成区块（line 0–1 当前无块可归）；
-3. 区块内候选序列离线复验相对 margin，可分才换门（废弃 ambient 公式）；
-4. premise/swap 类移出口层处理（引原文纪律），不进门。
+1. ~~`fate_grasp` 补 `candidate_indices`（候选分对应行号）~~ ✅；
+2. ~~首段收口成区块（line 0–1 当前无块可归）~~ ✅ `prelearn_head`；
+3. ~~区块内候选序列离线复验相对 margin，可分才换门~~ ✅ 门已落地
+   （`true_block_reading`，阈值 rel≥0.15 标定常数，只换 margin 型
+   弃权）——2026-11-14 实测：基线 20 题零错误侧翻转、q1/n_start
+   正确翻转、长对话核心 23/24→24/24、编造 0（见分析文档 §6）；
+4. premise/swap 类移出口层处理（引原文纪律），不进门； ⬅ 下一步
+5. 实体-属性绑定（para 类改述针、distractor 沉默的根），属场读数。

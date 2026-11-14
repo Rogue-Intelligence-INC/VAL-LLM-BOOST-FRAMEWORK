@@ -958,8 +958,10 @@ pub fn ingest_corpus_with_fragments_mode_full(
     };
 
     let mut warmup_outcome = None;
+    let tick_head_start = sample_fate_density(session).tick;
 
-    // Phase 1: prelearn — pulse Fate, no fragment tracks.
+    // Phase 1: prelearn — pulse Fate, no fragment tracks yet (the head
+    // lines are closed into the first block in Phase 3 below).
     for i in 0..prelearn_n {
         let line = lines[i].trim();
         let line_ref = if line.is_empty() { None } else { Some(line) };
@@ -970,6 +972,7 @@ pub fn ingest_corpus_with_fragments_mode_full(
     if prelearn_n > 0 {
         warmup_outcome = Some(run_fate_warmup(session, cfg, prelearn_n));
     }
+    let tick_head_end = sample_fate_density(session).tick;
 
     // Phase 3: remainder with fragment recording.
     let mut segmenter = FateDensitySegmenter::new();
@@ -977,6 +980,29 @@ pub fn ingest_corpus_with_fragments_mode_full(
     // from fragments the session already holds, so seg ids never repeat.
     segmenter.segment_index = session.fragment_tracks.len();
     if prelearn_n > 0 && mode == FragmentMode::Density {
+        // Architectural closure (owner design): the prelearned head
+        // lines are ingested material like any other — bundle them
+        // into the first block instead of leaving them outside every
+        // block. Material outside a block is not graspable substrate,
+        // so a head needle could never pass a block-local reading.
+        for i in 0..prelearn_n {
+            let line = lines[i].trim();
+            segmenter.line_labels.push(if line.is_empty() {
+                format!("corpus_line_{i}")
+            } else {
+                truncate_label(line, 96)
+            });
+        }
+        segmenter.open_tick_start = tick_head_start;
+        let head_meta = segmenter.build_close_meta(
+            prelearn_n - 1,
+            tick_head_end,
+            0.0,
+            0.0,
+            "prelearn_head",
+        );
+        let (head_id, head_label) = segmenter.segment_label();
+        session.record_fragment_with_meta(&head_id, &head_label, head_meta);
         segmenter.start_next_segment(prelearn_n);
     }
     for i in prelearn_n..n {

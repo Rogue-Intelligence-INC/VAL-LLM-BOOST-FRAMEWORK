@@ -1568,9 +1568,12 @@ fn decode_open(
 
     candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
+    // The series is kept deeper than the display top-5: the Fate
+    // block gate reads competition inside the grasped block, and a
+    // shallow series can hide the in-block runner-up entirely.
     let top: Vec<NativeMatch> = candidates
         .iter()
-        .take(5)
+        .take(12)
         .map(|(i, s, _kw)| {
             let m = &memories[*i];
             let cite = m
@@ -2801,12 +2804,68 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
         let fog_evidence = fog_evidence_from_matches(&top, &q.question);
         let native_reject = decode_path.contains("reject")
             || answer.starts_with("No confident match");
-        let fog_decision = fog_decide_algebraic(
+        let mut fog_decision = fog_decide_algebraic(
             &fog_evidence,
             req.incubation_cycles.max(1),
             2,
             native_reject,
         );
+
+        // Fate block reading (owner architecture, P1b): the grasp is
+        // judged against competition inside its own block — the stored
+        // fragment whose line range contains the grasped line. The
+        // ambient global-margin fog reading is superseded for
+        // margin-abstains only: cross-block near-ties (two lines from
+        // different blocks scoring alike) stop vetoing a grasp that
+        // stands clear on its own substrate. Absolute-weakness (tau),
+        // native-reject and defer abstains are untouched.
+        // Threshold calibrated on recorded true-block readings
+        // (valhalla-server fate_series_block.json, 12-deep series):
+        // gate-flipped correct needles rel >= 0.232, wrong grasps that
+        // must stay silent rel <= 0.110 — 0.15 sits inside the gap,
+        // the same role the ratio constant plays in bundle_fits.
+        let cand_idx: Vec<Option<usize>> = top
+            .iter()
+            .map(|m| crate::fate_qa::parse_corpus_idx(&m.text))
+            .collect();
+        let cand_scores: Vec<f64> = top.iter().map(|m| m.score).collect();
+        let grasped_line = retrieval_corpus_idx
+            .or_else(|| cand_idx.first().copied().flatten());
+        let block_ranges: Vec<(usize, usize)> = fragment_source
+            .iter()
+            .map(|f| (f.line_start, f.line_end))
+            .collect();
+        let block_reading = grasped_line.and_then(|g| {
+            crate::fate_qa::true_block_reading(&cand_idx, &cand_scores, g, &block_ranges)
+        });
+        if q.score_type == "open"
+            && fog_decision.decision == "abstain"
+            && fog_decision.reason.starts_with("margin=")
+        {
+            let rel_min = std::env::var("VALHALLA_FATE_BLOCK_REL_MIN")
+                .ok()
+                .and_then(|v| v.parse::<f64>().ok())
+                .unwrap_or(0.15);
+            if let Some(reading) = block_reading {
+                if reading.rel_margin >= rel_min {
+                    fog_decision = FogDecision {
+                        decision: "emit".into(),
+                        structure_ready: true,
+                        evidence_ready: true,
+                        tau: fog_decision.tau,
+                        delta_required: fog_decision.delta_required,
+                        reason: format!(
+                            "fate_block_ready block=[{},{}] rel={:.4}>={:.3} n_block={} (global-margin abstain superseded)",
+                            reading.line_start,
+                            reading.line_end,
+                            reading.rel_margin,
+                            rel_min,
+                            reading.n_candidates
+                        ),
+                    };
+                }
+            }
+        }
 
         if q.score_type == "open" {
             (answer, decode_path) = apply_open_fog_gate(answer, decode_path, Some(&fog_decision));
@@ -2895,6 +2954,27 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
             }
         }
 
+        let mut fate_grasp = crate::fate_qa::FateGrasp::build(
+            query_selection
+                .as_ref()
+                .map(|s| s.selected_ids.clone())
+                .unwrap_or_default(),
+            query_selection
+                .as_ref()
+                .map(|s| s.scores.clone())
+                .unwrap_or_default(),
+            cand_scores.clone(),
+            cand_idx.clone(),
+            query_selection
+                .as_ref()
+                .map(|s| s.corpus_line_indices.clone())
+                .unwrap_or_default(),
+            retrieval_corpus_idx,
+        );
+        if let (Some(grasp), Some(reading)) = (fate_grasp.as_mut(), block_reading) {
+            grasp.set_block_reading(&reading);
+        }
+
         results.push(NativeQaBatchItem {
             id: q.id.clone().unwrap_or_default(),
             answer,
@@ -2918,18 +2998,7 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
             retrieval_corpus_idx,
             query_fragments: query_selection.as_ref().map(|s| s.selected_ids.clone()),
             query_fragment_scores: query_selection.as_ref().map(|s| s.scores.clone()),
-            fate_grasp: crate::fate_qa::FateGrasp::build(
-                query_selection
-                    .as_ref()
-                    .map(|s| s.selected_ids.clone())
-                    .unwrap_or_default(),
-                query_selection
-                    .as_ref()
-                    .map(|s| s.scores.clone())
-                    .unwrap_or_default(),
-                top.iter().map(|m| m.score).collect(),
-                retrieval_corpus_idx,
-            ),
+            fate_grasp,
         });
 
         if use_live && query_selection.is_none() {
