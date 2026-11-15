@@ -1,4 +1,4 @@
-# Rust 移植件（2026-11-14 从 Valhalla-main hub-f64 移植，2026-11-15 同步至现行引擎状态）
+# Rust 移植件（2026-11-14 从 Valhalla-main hub-f64 移植，2026-11-15 统合定版同步）
 
 这些代码已在 Valhalla-main 落地并部署验证；本目录是移植到本框架
 的副本与集成说明。原版设计规范见 `docs/ORIGINAL_FATE_DESIGN.md`。
@@ -19,6 +19,15 @@
     2. 动态卸载修复：`export_fragment` 只带本片 tick 窗口内收口的
        tiles（空窗回退全量），`merge_fragments` 按 tile id 去重。
        效果：长对话会话线 46MB→1.49MB（见分析文档 §4）。
+  - `natural_channels.rs`：多通道解码（随统合新增同步件，
+    `affinity_passive` 穿线目标之一）。
+- **2026-11-15 统合定版**（`native_qa.rs` / `fate_orchestrator.rs` /
+  `natural_channels.rs` 已同步）：出口只出真默认开——窗口 3 内按
+  Fate **被动**激活重排只发第一名（premise 毒行→真行 AUR-7；
+  被动来源门控 + 0.005 明确偏好边距，两者均有 A/B 实测归因，
+  非被动反馈 affinity 重排曾把卸载核心打到 4/8，门控后 8/8）；
+  卸载选片放宽（`ceil(行数/5)`、锚点 0.25）：卸载 ON 核心
+  6/8 → 8/8、线峰值 0.22MB 不变、编造 0。极限核心 90/90。
 
 ## 构建与部署（本机已验证流程）
 
