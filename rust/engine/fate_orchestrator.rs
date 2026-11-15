@@ -29,6 +29,15 @@ pub struct FragmentCloseMeta {
     pub signal_tick_start: u64,
     #[serde(default)]
     pub signal_tick_end: u64,
+    /// Tile-clock window of this fragment (Tile's own global_tick
+    /// domain). The Hub Fate signal tick and Tile's completed_tick
+    /// advance at different rates, so windowing tiles by Hub ticks
+    /// scoped fragments to the wrong material; segment closes record
+    /// both clocks and export prefers this one when present.
+    #[serde(default)]
+    pub tile_tick_start: u64,
+    #[serde(default)]
+    pub tile_tick_end: u64,
     #[serde(default)]
     pub close_reason: String,
     #[serde(default)]
@@ -44,6 +53,15 @@ pub struct SnapshotFragment {
     pub label: String,
     pub completed_tiles: Vec<CompletedTile>,
     pub stem_cells: Vec<CompleteCell>,
+    /// Snapshot dedup: ids into the snapshot-level shared tables
+    /// (`TriadIncubationSnapshot.completed_tiles` / `.stem_cells`).
+    /// When non-empty, the payloads above are emptied at compact
+    /// export and rehydrated on load (see `rehydrate_fragments`).
+    /// Empty = legacy inline payload form.
+    #[serde(default)]
+    pub tile_ids: Vec<String>,
+    #[serde(default)]
+    pub cell_ids: Vec<String>,
     pub patch_vector: Vec<f64>,
     pub hub_prefs: Vec<f64>,
     pub hub_routed: [u64; 4],
@@ -390,7 +408,7 @@ pub fn fate_pretrain_pass(
     }
     for line in knowledge_lines {
         let ports = grind_text_hash(line, cap);
-        pulse_ingest_line(session, &ports, Some(line.as_str()), cfg);
+        pulse_ingest_line(session, &ports, Some(line.as_str()), cfg, true);
     }
     let warmup = run_fate_warmup(session, cfg, knowledge_lines.len());
     let link = fate_link_fragments(session, cfg);
@@ -660,6 +678,7 @@ pub struct FateDensitySegmenter {
     line_labels: Vec<String>,
     last_sample: Option<FateDensitySample>,
     open_tick_start: u64,
+    open_tile_tick: u64,
     prev_marginal_density: f64,
     low_density_streak: usize,
     low_pref_streak: usize,
@@ -688,6 +707,7 @@ impl FateDensitySegmenter {
         self.line_labels.clear();
         self.last_sample = None;
         self.open_tick_start = 0;
+        self.open_tile_tick = 0;
         self.prev_marginal_density = 0.0;
         self.low_density_streak = 0;
         self.low_pref_streak = 0;
@@ -720,6 +740,7 @@ impl FateDensitySegmenter {
         &self,
         line_end: usize,
         tick_end: u64,
+        tile_tick_end: u64,
         marginal_density: f64,
         pref_output_rate: f64,
         reason: &str,
@@ -729,6 +750,8 @@ impl FateDensitySegmenter {
             line_end,
             signal_tick_start: self.open_tick_start,
             signal_tick_end: tick_end,
+            tile_tick_start: self.open_tile_tick,
+            tile_tick_end,
             close_reason: reason.into(),
             marginal_density,
             pref_output_rate,
@@ -749,11 +772,13 @@ impl FateDensitySegmenter {
 
         if self.last_sample.is_none() {
             self.open_tick_start = cur.tick;
+            self.open_tile_tick = session.tile.global_tick;
             self.last_sample = Some(cur.clone());
             if lines_in_seg >= max_lines {
                 return Some(self.build_close_meta(
                     line_idx,
                     cur.tick,
+                    session.tile.global_tick,
                     0.0,
                     0.0,
                     "max_lines",
@@ -821,6 +846,7 @@ impl FateDensitySegmenter {
             return Some(self.build_close_meta(
                 line_idx,
                 cur.tick,
+                session.tile.global_tick,
                 marginal_density,
                 pref_output_rate,
                 reason,
@@ -838,6 +864,7 @@ impl FateDensitySegmenter {
         let meta = self.build_close_meta(
             last_line_idx,
             cur.tick,
+            session.tile.global_tick,
             self.prev_marginal_density,
             0.0,
             "corpus_end",
@@ -847,14 +874,29 @@ impl FateDensitySegmenter {
     }
 }
 
+/// Fate-controlled fragmentation scope for ingest convergence pulses.
+/// Legacy (default): full-manifold convergence cycles after every line.
+/// `VALHALLA_FATE_PULSE_SCOPE=segment`: lines only emit; convergence
+/// runs when Fate's density segmenter closes a fragment (plus the
+/// chunk-end adapt) — no per-line full-volume re-convergence.
+pub fn fate_pulse_segment_scoped() -> bool {
+    match std::env::var("VALHALLA_FATE_PULSE_SCOPE") {
+        Ok(v) => v.trim().eq_ignore_ascii_case("segment"),
+        Err(_) => false,
+    }
+}
+
 fn pulse_ingest_line(
     session: &mut TriadSession,
     ports: &BodyFrontPorts,
     line: Option<&str>,
     cfg: &FateOrchestratorConfig,
+    converge: bool,
 ) {
     session.emit_body_ports_with_line(ports, line);
-    let _ = run_fate_convergence_cycles(session, &FateCycleLimits::pulse(cfg));
+    if converge {
+        let _ = run_fate_convergence_cycles(session, &FateCycleLimits::pulse(cfg));
+    }
     if session.hub.is_data_flowing() {
         session.hub.mark_epoch_complete();
     }
@@ -868,7 +910,7 @@ pub fn ingest_line_record_fragment(
     idx: usize,
     cfg: &FateOrchestratorConfig,
 ) {
-    pulse_ingest_line(session, ports, line, cfg);
+    pulse_ingest_line(session, ports, line, cfg, true);
     let label = line
         .map(|s| truncate_label(s, 96))
         .unwrap_or_else(|| format!("corpus_line_{idx}"));
@@ -884,11 +926,20 @@ pub fn ingest_line_density_fragment(
     idx: usize,
     cfg: &FateOrchestratorConfig,
 ) {
-    pulse_ingest_line(session, ports, line, cfg);
+    let scoped = fate_pulse_segment_scoped();
+    pulse_ingest_line(session, ports, line, cfg, !scoped);
     let label = line
         .map(|s| truncate_label(s, 96))
         .unwrap_or_else(|| format!("corpus_line_{idx}"));
     if let Some(meta) = segmenter.observe(session, idx, label) {
+        if scoped {
+            // Fate-controlled fragmentation: settle the manifold once
+            // per closed fragment, not once per line.
+            let _ = run_fate_convergence_cycles(session, &FateCycleLimits::pulse(cfg));
+            if session.hub.is_data_flowing() {
+                session.hub.mark_epoch_complete();
+            }
+        }
         let (id, seg_label) = segmenter.segment_label();
         session.record_fragment_with_meta(&id, &seg_label, meta);
         segmenter.start_next_segment(idx + 1);
@@ -959,13 +1010,14 @@ pub fn ingest_corpus_with_fragments_mode_full(
 
     let mut warmup_outcome = None;
     let tick_head_start = sample_fate_density(session).tick;
+    let tile_head_start = session.tile.global_tick;
 
     // Phase 1: prelearn — pulse Fate, no fragment tracks yet (the head
     // lines are closed into the first block in Phase 3 below).
     for i in 0..prelearn_n {
         let line = lines[i].trim();
         let line_ref = if line.is_empty() { None } else { Some(line) };
-        pulse_ingest_line(session, &ports[i], line_ref, cfg);
+        pulse_ingest_line(session, &ports[i], line_ref, cfg, true);
     }
 
     // Phase 2: Fate warmup cycles before dynamic segmentation.
@@ -994,9 +1046,11 @@ pub fn ingest_corpus_with_fragments_mode_full(
             });
         }
         segmenter.open_tick_start = tick_head_start;
+        segmenter.open_tile_tick = tile_head_start;
         let head_meta = segmenter.build_close_meta(
             prelearn_n - 1,
             tick_head_end,
+            session.tile.global_tick,
             0.0,
             0.0,
             "prelearn_head",
@@ -1016,7 +1070,7 @@ pub fn ingest_corpus_with_fragments_mode_full(
                 ingest_line_record_fragment(session, &ports[i], line_ref, i, cfg);
             }
             FragmentMode::Off => {
-                pulse_ingest_line(session, &ports[i], line_ref, cfg);
+                pulse_ingest_line(session, &ports[i], line_ref, cfg, !fate_pulse_segment_scoped());
             }
         }
     }
@@ -1058,7 +1112,7 @@ pub fn append_corpus_with_fragments_mode(
                 ingest_line_record_fragment(session, &ports[i], line_ref, idx, cfg);
             }
             FragmentMode::Off => {
-                pulse_ingest_line(session, &ports[i], line_ref, cfg);
+                pulse_ingest_line(session, &ports[i], line_ref, cfg, !fate_pulse_segment_scoped());
             }
         }
     }
@@ -1264,14 +1318,25 @@ pub fn export_fragment(
     // the last and defeated fragment-only persistence on the wire).
     // Falls back to the full set when the window matches nothing
     // (e.g. default fragments with no tick window recorded).
+    // Prefer the Tile-clock window when the segment recorded one:
+    // Hub Fate ticks and Tile completed_ticks are different clocks
+    // advancing at different rates, and windowing by the Hub clock
+    // scoped fragments to stale material. Legacy metas without a
+    // Tile window keep the Hub-tick behavior.
+    let use_tile_window = meta.tile_tick_end > meta.tile_tick_start;
     let windowed_tiles: Vec<_> = session
         .tile
         .completed_tiles
         .iter()
         .filter(|t| {
-            meta.signal_tick_end > meta.signal_tick_start
-                && t.completed_tick >= meta.signal_tick_start
-                && t.completed_tick <= meta.signal_tick_end
+            if use_tile_window {
+                t.completed_tick >= meta.tile_tick_start
+                    && t.completed_tick <= meta.tile_tick_end
+            } else {
+                meta.signal_tick_end > meta.signal_tick_start
+                    && t.completed_tick >= meta.signal_tick_start
+                    && t.completed_tick <= meta.signal_tick_end
+            }
         })
         .cloned()
         .collect();
@@ -1284,6 +1349,8 @@ pub fn export_fragment(
         id: id.into(),
         label: label.into(),
         completed_tiles,
+        tile_ids: Vec::new(),
+        cell_ids: Vec::new(),
         stem_cells: session.stem.cells.clone(),
         patch_vector: patch.patch_vector,
         hub_prefs: prefs.affinities,
@@ -1320,14 +1387,19 @@ pub fn merge_fragments(
     let mut best_hist_len = 0usize;
     let mut merged_triple = fragments[0].triple_fate_slice.clone();
 
+    // Hash dedup (first occurrence wins, same as the previous linear
+    // scans): merging all fragments must stay linear in total tiles,
+    // not fragments x tiles.
+    let mut seen_tiles: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut seen_cells: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for frag in fragments {
         for t in &frag.completed_tiles {
-            if !all_tiles.iter().any(|x| x.id == t.id) {
+            if seen_tiles.insert(t.id.as_str()) {
                 all_tiles.push(t.clone());
             }
         }
         for cell in &frag.stem_cells {
-            if !all_stem.iter().any(|c| c.cell_id == cell.cell_id) {
+            if seen_cells.insert(cell.cell_id.as_str()) {
                 all_stem.push(cell.clone());
             }
         }
@@ -1455,20 +1527,94 @@ pub fn mergeable_session_fragments(session: &TriadSession) -> Vec<SnapshotFragme
 /// Compact session export — fragments + Fate metadata; no monolithic tile/stem freeze.
 pub fn compact_manifold_snapshot(session: &TriadSession) -> TriadIncubationSnapshot {
     let mut snap = session.manifold_snapshot();
-    snap.completed_tiles = Vec::new();
-    snap.stem_cells = Vec::new();
     snap.tile_total_operations = 0;
     snap.patch_vector = Vec::new();
-    snap.fragments = mergeable_session_fragments(session);
+    let mut fragments = mergeable_session_fragments(session);
+    // Snapshot dedup (same discipline as the wire dedupe): the tile /
+    // stem-cell tables are stored ONCE at snapshot level and each
+    // fragment keeps only the ids of its entries. Previously every
+    // fragment embedded a near-global copy of both tables (the
+    // dynamic-unload tick window does not prevent this: link chains
+    // re-export with a default meta and fall back to the full set,
+    // stem_cells is never windowed, and completed_tick stamps are
+    // too bursty for windows to scope), so snapshot size scaled as
+    // fragments x table and crossed the HTTP body limit in a single
+    // extend — measured 3.72MB -> 37.23MB at ~490 wholesale lines.
+    let mut tiles: Vec<CompletedTile> = Vec::new();
+    let mut cells: Vec<CompleteCell> = Vec::new();
+    let mut seen_tiles: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut seen_cells: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for frag in &mut fragments {
+        if frag.tile_ids.is_empty() {
+            frag.tile_ids = frag.completed_tiles.iter().map(|t| t.id.clone()).collect();
+        }
+        for t in frag.completed_tiles.drain(..) {
+            if seen_tiles.insert(t.id.clone()) {
+                tiles.push(t);
+            }
+        }
+        if frag.cell_ids.is_empty() {
+            frag.cell_ids = frag.stem_cells.iter().map(|c| c.cell_id.clone()).collect();
+        }
+        for c in frag.stem_cells.drain(..) {
+            if seen_cells.insert(c.cell_id.clone()) {
+                cells.push(c);
+            }
+        }
+    }
+    snap.completed_tiles = tiles;
+    snap.stem_cells = cells;
+    snap.fragments = fragments;
     snap
 }
 
+/// Rehydrate fragment tile/cell payloads from the snapshot-level
+/// shared tables (inverse of the compact-export dedup; the dynamic
+/// load side). Fragments with empty id lists keep their inline
+/// payloads, so legacy snapshots load unchanged.
+pub fn rehydrate_fragments(
+    fragments: &[SnapshotFragment],
+    tiles: &[CompletedTile],
+    cells: &[CompleteCell],
+) -> Vec<SnapshotFragment> {
+    if fragments.iter().all(|f| f.tile_ids.is_empty() && f.cell_ids.is_empty()) {
+        return fragments.to_vec();
+    }
+    let tile_map: std::collections::HashMap<&str, &CompletedTile> =
+        tiles.iter().map(|t| (t.id.as_str(), t)).collect();
+    let cell_map: std::collections::HashMap<&str, &CompleteCell> =
+        cells.iter().map(|c| (c.cell_id.as_str(), c)).collect();
+    fragments
+        .iter()
+        .map(|f| {
+            let mut f = f.clone();
+            if !f.tile_ids.is_empty() {
+                f.completed_tiles = f
+                    .tile_ids
+                    .iter()
+                    .filter_map(|id| tile_map.get(id.as_str()).map(|t| (*t).clone()))
+                    .collect();
+            }
+            if !f.cell_ids.is_empty() {
+                f.stem_cells = f
+                    .cell_ids
+                    .iter()
+                    .filter_map(|id| cell_map.get(id.as_str()).map(|c| (*c).clone()))
+                    .collect();
+            }
+            f
+        })
+        .collect()
+}
+
 pub fn stored_fragments(snap: &TriadIncubationSnapshot) -> Vec<SnapshotFragment> {
-    snap.fragments
+    let frags: Vec<SnapshotFragment> = snap
+        .fragments
         .iter()
         .filter(|f| is_mergeable_fragment(&f.id))
         .cloned()
-        .collect()
+        .collect();
+    rehydrate_fragments(&frags, &snap.completed_tiles, &snap.stem_cells)
 }
 
 /// Rebuild live session from persisted dynamic fragments (no monolithic snapshot restore).
@@ -1976,7 +2122,7 @@ mod tests {
     }
 
     #[test]
-    fn compact_snapshot_strips_tiles_keeps_fragments() {
+    fn compact_snapshot_dedups_tables_keeps_fragments() {
         std::env::set_var("VALHALLA_FRAGMENT_ONLY", "1");
         std::env::set_var("VALHALLA_DYNAMIC_CORPUS_FRAGMENTS", "1");
         let mut session = smoke_session();
@@ -1984,16 +2130,26 @@ mod tests {
         let full = session.manifold_snapshot();
         assert!(!full.completed_tiles.is_empty() || !full.stem_cells.is_empty());
         let compact = compact_manifold_snapshot(&session);
-        assert!(compact.completed_tiles.is_empty());
-        assert!(compact.stem_cells.is_empty());
+        // Dedup invariant: shared tables live once at snapshot level;
+        // fragments keep ids only, payloads rehydrate on load.
+        assert!(!compact.completed_tiles.is_empty() || !compact.stem_cells.is_empty());
         assert!(!compact.fragments.is_empty());
+        assert!(compact
+            .fragments
+            .iter()
+            .all(|f| f.completed_tiles.is_empty() && f.stem_cells.is_empty()));
+        let stored = stored_fragments(&compact);
+        assert!(!stored.is_empty());
+        assert!(stored
+            .iter()
+            .any(|f| !f.completed_tiles.is_empty() || !f.stem_cells.is_empty()));
         let restored = session_from_stored_fragments(
-            &stored_fragments(&compact),
+            &stored,
             &compact.corpus_line_affinity,
             IngressBudget::experiment(),
             BodyTarget::Triad,
         );
-        assert!(!stored_fragments(&compact).is_empty());
+        assert!(!restored.tile.completed_tiles.is_empty() || !restored.stem.cells.is_empty());
         assert!(restored.hub.fate_system().get_logical_time() >= 0);
     }
 

@@ -26,5 +26,7 @@ Valhalla 之上的**智能层**：在 `val-llm-fusion-framework` 已实测的"�
 - `rust/`——已在 Valhalla-main 落地的 Fate 抓取出口与卸载修复
   源码副本及集成说明；`tests/` 为全部探针与结果。
 
-状态：2026-11-14 本地立项，**未推送**。组织归属（拟）：
-Rogue-Intelligence-INC/VAL-LLM-BOOST-FRAMEWORK
+状态：2026-11-15 已推送，组织归属：
+Rogue-Intelligence-INC/VAL-LLM-BOOST-FRAMEWORK。`rust/` 引擎副本已
+同步至 Valhalla-main 现行源码（2026-11-15）；一键复现见根目录
+`reproduce.ps1`（构建引擎 → 起本地引擎 → 跑 560 行电池）。

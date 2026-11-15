@@ -1,4 +1,4 @@
-# Rust 移植件（2026-11-14，从 Valhalla-main hub-f64 移植）
+# Rust 移植件（2026-11-14 从 Valhalla-main hub-f64 移植，2026-11-15 同步至现行引擎状态）
 
 这些代码已在 Valhalla-main 落地并部署验证；本目录是移植到本框架
 的副本与集成说明。原版设计规范见 `docs/ORIGINAL_FATE_DESIGN.md`。

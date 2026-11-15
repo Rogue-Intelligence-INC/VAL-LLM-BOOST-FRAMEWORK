@@ -2597,15 +2597,32 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
                 })
                 .collect();
             if !corpus_refs.is_empty() {
-                let _fate_adapt = crate::multihop_fate::run_multihop_fate_adapt(
-                    qa_session,
-                    &q.question,
-                    &corpus_refs,
-                    question_ports,
-                    req.qa_cycles.max(2),
-                    &front,
-                );
-                fate_line_aff = qa_session.manifold_snapshot().corpus_line_affinity;
+                if crate::multihop_fate::passive_qa_enabled() {
+                    // Passive Fate QA: the question pulse above has
+                    // already lit the substrate; Fate passively holds
+                    // the activated state in its tiles. Read it —
+                    // never re-feed corpus lines or mutate affinity
+                    // before judgment (no adapt loop on this path).
+                    let captured = crate::multihop_fate::capture_passive_activation(
+                        qa_session,
+                        &q.question,
+                        &corpus_refs,
+                        &front,
+                    );
+                    if !captured.is_empty() {
+                        fate_line_aff = captured;
+                    }
+                } else {
+                    let _fate_adapt = crate::multihop_fate::run_multihop_fate_adapt(
+                        qa_session,
+                        &q.question,
+                        &corpus_refs,
+                        question_ports,
+                        req.qa_cycles.max(2),
+                        &front,
+                    );
+                    fate_line_aff = qa_session.manifold_snapshot().corpus_line_affinity;
+                }
             }
         }
 
@@ -2789,7 +2806,6 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
                 );
                 (report, None, None, answer, top, decode_path, retrieval_corpus_idx)
             };
-
         if !use_natural {
             if mcq_fate_meta.is_some() && pipeline_outcome.is_none() {
                 decode_path = "mcq_fate_cycle".to_string();
@@ -3043,6 +3059,19 @@ pub fn run_native_qa_batch(req: &NativeQaBatchRequest) -> NativeQaBatchResponse 
                 block_cluster_threshold,
             );
             grasp.set_live_equation(live_eq_state.0, live_eq_state.1, live_eq_state.2);
+        }
+
+        // Post-judgment passive intake (owner architecture: learn
+        // AFTER judgment). Fate passively captures this question's
+        // activated candidate series; nothing here can change the
+        // answer just judged. The series only trains the session's
+        // live cluster equation (receive_passive -> adapt), the
+        // quantity that controls the block gate on FUTURE questions,
+        // and the trained state rides out in the exported snapshot.
+        if q.score_type == "open" {
+            for s in &cand_scores {
+                qa_session.hub.triple_fate.receive_passive(*s);
+            }
         }
 
         results.push(NativeQaBatchItem {
