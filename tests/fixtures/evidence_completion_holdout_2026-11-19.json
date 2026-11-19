@@ -1,0 +1,45 @@
+{
+  "name": "evidence-completion-holdout-2026-11-19",
+  "description": "Fictional release manuals and bench notes. The expected answers are private to the runner during each query.",
+  "documents": {
+    "release_records": [
+      {"id": "alder_23_firmware", "value": "ALC-317", "text": "AlderNet AX-9 release record, revision 2.3. The approved controller firmware is ALC-317."},
+      {"id": "alder_24_scan", "value": "SCAN-18", "text": "The approved scan profile for AlderNet AX-9 in revision 2.4 is SCAN-18."},
+      {"id": "alder_24_firmware", "value": "ALC-428", "text": "AlderNet AX-9 release record, revision 2.4. The approved controller firmware is ALC-428."},
+      {"id": "alder_23_scan", "value": "SCAN-12", "text": "Revision 2.3 specifies scan profile SCAN-12 for AlderNet AX-9."},
+      {"id": "alder_sim_firmware", "value": "SIM-428", "text": "The revision 2.4 AlderNet AX-9 simulator runs SIM-428."},
+      {"id": "briar_a", "value": "BR-F14", "text": "Briar Bridge H-2 revision 5.7, signed release ballot North. The approved firmware is BR-F14."},
+      {"id": "briar_b", "value": "BR-F20", "text": "Briar Bridge H-2 revision 5.7, signed release ballot South. The approved firmware is BR-F20."},
+      {"id": "briar_scope", "value": "", "text": "The Briar Bridge H-2 revision 5.7 North and South release ballots carry equal authority. A deciding ballot is not included in this record."},
+      {"id": "briar_old", "value": "BR-F11", "text": "The Briar Bridge H-2 revision 5.6 archived firmware was BR-F11."},
+      {"id": "alder_24_led", "value": "LED-04", "text": "AlderNet AX-9 revision 2.4 maintenance indicators follow LED-04."}
+    ],
+    "installation_records": [
+      {"id": "lumen_pair", "value": "JOIN-82", "text": "The field pairing profile for Lumen-4 is JOIN-82."},
+      {"id": "cove_modem", "value": "LINK-29", "text": "The Cove repeater uses modem profile LINK-29 during standard installation."},
+      {"id": "lumen_mount", "value": "MNT-47", "text": "For a wall installation, use mounting bracket MNT-47 on Lumen-4."},
+      {"id": "lumen_s_pair", "value": "JOIN-18", "text": "The factory pairing profile JOIN-18 applies to Lumen-4S."},
+      {"id": "cove_cal", "value": "CAL-72", "text": "Cove repeater field calibration uses CAL-72."},
+      {"id": "dock_bypass", "value": "BYP-16", "text": "For Dock Gate DG-3 maintenance bypass, use profile BYP-16."},
+      {"id": "lumen_standby", "value": "HOLD-31", "text": "The standby recovery profile for Lumen-4 is HOLD-31."},
+      {"id": "dock_latch", "value": "LCH-31", "text": "Inspection record for Dock Gate DG-3. The approved latch module is LCH-31."},
+      {"id": "lumen_s_mount", "value": "MNT-49", "text": "For Lumen-4S, the standard wall bracket is MNT-49."},
+      {"id": "cove_lab", "value": "LINK-27", "text": "Cove repeater lab simulator traffic uses modem profile LINK-27."},
+      {"id": "dock_normal", "value": "GATE-04", "text": "The normal drive profile for Dock Gate DG-3 is GATE-04."}
+    ]
+  },
+  "cases": [
+    {"id": "v01", "category": "version", "document": "release_records", "question": "Which controller firmware is approved for AlderNet AX-9 in revision 2.4?", "expected": ["alder_24_firmware"]},
+    {"id": "v02", "category": "version", "document": "release_records", "question": "For the archived AlderNet AX-9 revision 2.3, which scan profile was specified?", "expected": ["alder_23_scan"]},
+    {"id": "v03", "category": "version", "document": "release_records", "question": "Report the approved AlderNet AX-9 controller firmware separately for revision 2.3 and revision 2.4.", "expected": ["alder_23_firmware", "alder_24_firmware"]},
+    {"id": "v04", "category": "version", "document": "release_records", "question": "What single firmware can be established as approved for Briar Bridge H-2 revision 5.7 under the release ballots' authority?", "expected": []},
+    {"id": "c01", "category": "complement", "document": "installation_records", "question": "For a wall installation of Lumen-4, what mount do I need and which pairing profile do I use in the field?", "expected": ["lumen_mount", "lumen_pair"]},
+    {"id": "c02", "category": "complement", "document": "installation_records", "question": "List the modem profile and field calibration setting for installing a Cove repeater on site.", "expected": ["cove_modem", "cove_cal"]},
+    {"id": "c03", "category": "complement", "document": "installation_records", "question": "For Dock Gate DG-3, give the approved latch module and the maintenance bypass profile.", "expected": ["dock_latch", "dock_bypass"]},
+    {"id": "c04", "category": "complement", "document": "installation_records", "question": "Give the Lumen-4 standby recovery profile along with the wall bracket for Lumen-4S.", "expected": ["lumen_standby", "lumen_s_mount"]},
+    {"id": "m01", "category": "missing", "document": "installation_records", "question": "What is the maximum operating temperature for Dock Gate DG-3?", "expected": []},
+    {"id": "m02", "category": "missing", "document": "installation_records", "question": "Tell me both the Cove repeater field calibration code and its maximum transmit power.", "expected": []},
+    {"id": "m03", "category": "missing", "document": "release_records", "question": "Which controller firmware does the AlderNet AX-9 revision 2.5 release record approve?", "expected": []},
+    {"id": "m04", "category": "missing", "document": "installation_records", "question": "What standby recovery profile is specified for Lumen-4S?", "expected": []}
+  ]
+}

@@ -30,3 +30,7 @@ Valhalla 之上的**智能层**：在 `val-llm-fusion-framework` 已实测的"�
 Rogue-Intelligence-INC/VAL-LLM-BOOST-FRAMEWORK。`rust/` 引擎副本已
 同步至 Valhalla-main 现行源码（2026-11-15）；一键复现见根目录
 `reproduce.ps1`（构建引擎 → 起本地引擎 → 跑 560 行电池）。
+
+## Evidence completion evaluation
+
+See the [fresh holdout and reproduction instructions](docs/EVIDENCE_COMPLETION.md) for version conflicts, two-source answers, and abstention.
