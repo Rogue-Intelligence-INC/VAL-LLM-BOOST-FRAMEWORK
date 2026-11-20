@@ -1,5 +1,7 @@
 # Fate evidence completion
 
+The November 20 evaluation covers the later Fate-controlled API feedback workflow, including a paired Gemini pilot, a partial LoCoMo run, and a comparison with the historical policy. See [Fate API feedback evaluation](FATE_API_FEEDBACK_EVALUATION_20261120.md).
+
 The experimental `evidence_completion` policy starts with Fate's highest admissible candidate and a small pool of nearby or coupled candidates. A local semantic judge selects original source lines only when they cover every requested fact. An explicit abstention triggers at most one recheck of the same evidence with stable ordering and prompt-local IDs. An accepted answer consists of the selected original lines with their citations.
 
 ## Fresh synthetic holdout · November 19, 2026
